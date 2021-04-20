@@ -4,7 +4,7 @@ import keyboard  # using module keyboard
 import sys
 from datetime import datetime
 
-audiofiles = ["11_13_21.wav", "11_13_29.wav"]
+audiofiles = []
 def stop_recording(stream, p, CHANNELS, RATE, FORMAT, frames):
         stream.stop_stream()
         stream.close()
