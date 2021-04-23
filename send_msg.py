@@ -1,7 +1,7 @@
 
 import paho.mqtt.client as mqtt
 
-topic = "/team8/send"
+topic = "team8/send"
 
 #Die Variablen sind bei mir im Skript entsprechend angepasst 
 #user = "user"
