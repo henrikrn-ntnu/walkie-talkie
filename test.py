@@ -1,2 +1,0 @@
-# kode
-#Litt mer kode

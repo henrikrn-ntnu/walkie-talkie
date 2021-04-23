@@ -4,7 +4,7 @@ from datetime import datetime
 import wave
 import pyaudio
 
-class WalkieTalkie:
+class WalkieTalkieSTM:
     def __init__(self, name):
         self._logger = logging.getLogger(__name__)
         self.name = name

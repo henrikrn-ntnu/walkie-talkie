@@ -1,15 +1,31 @@
 from threading import Thread
 import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+
 import json
+#from state_machine import WalkieTalkieSTM
+#from WTGui import WTGui
+import sys
+
+
+
+# self.interface = WTGui()
+# self.stm = WalkieTalkieSTM()
 
 
 class Client:
+
     def __init__(self, id=""):
         self.id = id
 
     def on_connect(self, client, userdata, flags, rc):
         print("on_connect(): {}".format(mqtt.connack_string(rc)))
-        self.client.publish("team", json.dumps({'message': 'hei','client_id': self.id}))
+        file = open("WAV_ex_1MB.wav", "rb")
+        imagestring = file.read()
+        file.close()
+        byteArray = bytearray(imagestring)
+        #self.client.publish("team", byteArray)
+        self.client.publish("team", json.dumps({'message': byteArray,'client_id': self.id}))
 
     def on_message(self, client, userdata, msg):
         print("on_message(): topic: {}".format(msg.topic))
