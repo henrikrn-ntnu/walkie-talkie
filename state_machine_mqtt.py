@@ -89,8 +89,7 @@ class WalkieTalkie:
               'a': 'defer'}
         s_1 = {'name': 'listening', 'button_release' : 'defer'}
         s_2 = {'name': 'paused'}
-        # TODO: fjerne stop i record_message state? vet ikke om den gjør noe nå...
-        s_3 = {'name': 'record_message','do': 'start_recording(); start_timer("t", 60000)', 'stop' : 'stop()',
+        s_3 = {'name': 'record_message','do': 'start_recording(); start_timer("t", 60000)',
             'on_message_receive': 'defer'}
 
         walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [s_1, s_2, s_3], obj=walkie_talkie)
