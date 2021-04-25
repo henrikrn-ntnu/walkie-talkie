@@ -230,30 +230,30 @@ class WalkieTalkieManager():
 
     def on_button_pressed_record(self):
         ''' Change layout and send button_press message'''
-        self.app.removeButton("Record start", self.on_button_pressed_record)
-        self.app.removeButton("Pause",self.on_button_pressed_pause)
-        self.app.addButton("Record stop", self.on_button_pressed_record_done)
+        self.app.removeButton(self.BUTTON_TEXT_RECORD, self.on_button_pressed_record)
+        self.app.removeButton(self.BUTTON_TEXT_PAUSE,self.on_button_pressed_pause)
+        self.app.addButton(self.BUTTON_TEXT_STOP, self.on_button_pressed_record_done)
         self.walkie_talkie_stm.send('button_press')
 
     def on_button_pressed_record_done(self):
         ''' Change layout and send button_release message'''
-        self.app.removeButton("Record stop", self.on_button_pressed_record_done)
-        self.app.addButton("Record start", self.on_button_pressed_record)
-        self.app.addButton("Pause",self.on_button_pressed_pause)  
+        self.app.removeButton(self.BUTTON_TEXT_STOP, self.on_button_pressed_record_done)
+        self.app.addButton(self.BUTTON_TEXT_RECORD, self.on_button_pressed_record)
+        self.app.addButton(self.BUTTON_TEXT_PAUSE,self.on_button_pressed_pause)  
         self.walkie_talkie_stm.send('button_release')
 
     def on_button_pressed_pause(self):
         ''' Change layout and send pause message'''
-        self.app.removeButton("Pause", self.on_button_pressed_pause)
-        self.app.removeButton("Record start", self.on_button_pressed_record)
-        self.app.addButton("Un-pause",self.on_button_pressed_unpause)  
+        self.app.removeButton(self.BUTTON_TEXT_PAUSE, self.on_button_pressed_pause)
+        self.app.removeButton(self.BUTTON_TEXT_RECORD, self.on_button_pressed_record)
+        self.app.addButton(self.BUTTON_TEXT_UNPAUSE, self.on_button_pressed_unpause)  
         self.walkie_talkie_stm.send('pause')
 
     def on_button_pressed_unpause(self):
         ''' Change layout and send unpause message'''
-        self.app.removeButton("Un-pause", self.on_button_pressed_unpause)
-        self.app.addButton("Record start", self.on_button_pressed_record)
-        self.app.addButton("Pause",self.on_button_pressed_pause)  
+        self.app.removeButton(self.BUTTON_TEXT_UNPAUSE, self.on_button_pressed_unpause)
+        self.app.addButton(self.BUTTON_TEXT_RECORD, self.on_button_pressed_record)
+        self.app.addButton(self.BUTTON_TEXT_PAUSE,self.on_button_pressed_pause)  
         self.walkie_talkie_stm.send('unpause')   
 
     def __init__(self):
@@ -288,14 +288,20 @@ class WalkieTalkieManager():
         self.walkie_talkie_stm = WalkieTalkie.create_machine('wt1')
         self.driver.add_machine(self.walkie_talkie_stm)
 
+        # button text
+        self.BUTTON_TEXT_RECORD = "Start recording"
+        self.BUTTON_TEXT_STOP = "Stop recording"
+        self.BUTTON_TEXT_PAUSE = "Pause"
+        self.BUTTON_TEXT_UNPAUSE = "Un-pause"
+
         # setup and display gui
         self.app = gui()
         self.app.setTitle("Walkie-Talkie")
         self.app.setFont(size=24, family="Times")
         self.app.setBg("#7b9095", override=False, tint=False)
         self.app.setSize(200,100)
-        self.app.addButton("Record start", self.on_button_pressed_record)
-        self.app.addButton("Pause", self.on_button_pressed_pause)
+        self.app.addButton(self.BUTTON_TEXT_RECORD, self.on_button_pressed_record)
+        self.app.addButton(self.BUTTON_TEXT_PAUSE, self.on_button_pressed_pause)
         self.app.go()
 
 
