@@ -5,6 +5,7 @@ import wave
 import pyaudio
 import paho.mqtt.client as mqtt
 import paho.mqtt.client as publish
+from appJar import gui  
 
 
 
@@ -32,7 +33,7 @@ class WalkieTalkie:
         self.stream_out = ''
         self.frames = []
         self.audiofiles = []
-        self.WAVE_OUTPUT_FILENAME = ''
+        self.WAVE_OUTPUT_FILENAME = 'test.wav'  # TODO: endre tilbake til ''?
         self.MQTT_BROKER = 'mqtt.item.ntnu.no'
         self.MQTT_TOPIC_INPUT = 'team8/WalkieTalkie/'
         self.MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
@@ -57,12 +58,11 @@ class WalkieTalkie:
               'target': 'listening'}
         t1 = {'trigger':'button_press', 
               'source': 'listening', 
-              'target':'record_message',
-              'effect': 'start_recording; start_timer("t", 60000)'}
+              'target':'record_message'}
         t2 = {'trigger': 'button_release', 
               'source': 'record_message', 
               'target': 'listening',
-              'effect': 'stop_recording; send_message'}
+              'effect': 'stop_timer("t"); stop_recording; send_message'}
         t3 = {'trigger': 'on_message_receive', 
               'source': 'listening', 
               'target': 'listening',
@@ -78,7 +78,7 @@ class WalkieTalkie:
         t6 = {'trigger': 'unpause', 
               'source': 'paused', 
               'target': 'listening',
-              'effect': 'play_message'}
+              'effect': 'play_messages'}
         t7 = {'trigger': 't',
               'source': 'record_message',
               'target': 'listening',
@@ -87,9 +87,10 @@ class WalkieTalkie:
               'source': 'record_message',
               'target': 'listening',
               'a': 'defer'}
-        s_1 = {'name': 'listening'}
+        s_1 = {'name': 'listening', 'button_release' : 'defer'}
         s_2 = {'name': 'paused'}
-        s_3 = {'name': 'record_message',
+        # TODO: fjerne stop i record_message state? vet ikke om den gjør noe nå...
+        s_3 = {'name': 'record_message','do': 'start_recording(); start_timer("t", 60000)', 'stop' : 'stop()',
             'on_message_receive': 'defer'}
 
         walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [s_1, s_2, s_3], obj=walkie_talkie)
@@ -99,7 +100,7 @@ class WalkieTalkie:
 
     def start_recording(self):
         self.stm.start_timer('t', self.max_recording_time * 1000) #Input in milliseconds
-        
+
         ''' Init recording '''
         self.p_out = pyaudio.PyAudio()
         SPEAKERS = self.p_out.get_default_output_device_info()["hostApi"] 
@@ -114,17 +115,25 @@ class WalkieTalkie:
         print("* recording")
         self._logger.debug('Recording started')
         self.frames = []
-        while True:
-            data = self.stream_out.read(self.audiovariables['CHUNK'])
+        
+        self.recording = True
+        while self.recording:   # records until timer runs out OR stop button is clicked
+            data = self.stream_out.read(self.audioconstants['CHUNK'])
             self.frames.append(data)
+        
 
     def stop_recording(self):
+        ''' Stop while loop in start_recording'''
+        self.recording = False
         ''' Stop recording '''
         self.stream_out.stop_stream()
         self.stream_out.close()
         self.p_out.terminate()
         self._logger.debug('Recording stopped')
 
+        self.save_recording()
+
+    def save_recording(self):
         ''' Save recording '''
         self.WAVE_OUTPUT_FILENAME = datetime.now().strftime("%H_%M_%S") + ".wav"
         wf = wave.open(self.WAVE_OUTPUT_FILENAME, 'wb')
@@ -201,6 +210,7 @@ class WalkieTalkie:
 
     def ignore_recording(self):
         ''' Stop recording '''
+        self.recording = False
         self.stream_out.stop_stream()
         self.stream_out.close()
         self.p_out.terminate()
@@ -217,6 +227,34 @@ class WalkieTalkieManager():
     def on_message(self, client, userdata, msg):
         #self.walkie_talkie_stm.userdata = userdata
         self.walkie_talkie_stm.send('on_message_receive')
+
+    def on_button_pressed_record(self):
+        ''' Change layout and send button_press message'''
+        self.app.removeButton("Record start", self.on_button_pressed_record)
+        self.app.removeButton("Pause",self.on_button_pressed_pause)
+        self.app.addButton("Record stop", self.on_button_pressed_record_done)
+        self.walkie_talkie_stm.send('button_press')
+
+    def on_button_pressed_record_done(self):
+        ''' Change layout and send button_release message'''
+        self.app.removeButton("Record stop", self.on_button_pressed_record_done)
+        self.app.addButton("Record start", self.on_button_pressed_record)
+        self.app.addButton("Pause",self.on_button_pressed_pause)  
+        self.walkie_talkie_stm.send('button_release')
+
+    def on_button_pressed_pause(self):
+        ''' Change layout and send pause message'''
+        self.app.removeButton("Pause", self.on_button_pressed_pause)
+        self.app.removeButton("Record start", self.on_button_pressed_record)
+        self.app.addButton("Un-pause",self.on_button_pressed_unpause)  
+        self.walkie_talkie_stm.send('pause')
+
+    def on_button_pressed_unpause(self):
+        ''' Change layout and send unpause message'''
+        self.app.removeButton("Un-pause", self.on_button_pressed_unpause)
+        self.app.addButton("Record start", self.on_button_pressed_record)
+        self.app.addButton("Pause",self.on_button_pressed_pause)  
+        self.walkie_talkie_stm.send('unpause')   
 
     def __init__(self):
         self._logger = logging.getLogger(__name__)
@@ -250,6 +288,15 @@ class WalkieTalkieManager():
         self.walkie_talkie_stm = WalkieTalkie.create_machine('wt1')
         self.driver.add_machine(self.walkie_talkie_stm)
 
+        # setup and display gui
+        self.app = gui()
+        self.app.setTitle("Walkie-Talkie")
+        self.app.setFont(size=24, family="Times")
+        self.app.setBg("#7b9095", override=False, tint=False)
+        self.app.setSize(200,100)
+        self.app.addButton("Record start", self.on_button_pressed_record)
+        self.app.addButton("Pause", self.on_button_pressed_pause)
+        self.app.go()
 
 
 debug_level = logging.DEBUG
