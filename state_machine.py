@@ -3,6 +3,8 @@ import stmpy
 from datetime import datetime
 import wave
 import pyaudio
+import paho.mqtt.client as mqtt
+import paho.mqtt.client as publish
 
 class WalkieTalkie:
     def __init__(self, name):
@@ -24,6 +26,11 @@ class WalkieTalkie:
         self.frames
         self.audiofiles = []
         self.WAVE_OUTPUT_FILENAME = ''
+        self.MQTT_BROKER = 'mqtt.item.ntnu.no'
+        self.MQTT_TOPIC_INPUT = 'team8/WalkieTalkie/'
+        self.MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
+        self.MQTT_PORT = 1883
+
 
     def create_machine(name):
         ''' Create state machine with helper method '''
@@ -59,28 +66,34 @@ class WalkieTalkie:
         t7 = {'trigger': 't',
               'source': 'record_message',
               'target': 'listening',
-              'effect': 'ignore_recording'}¨
+              'effect': 'ignore_recording'}
         t8 = {'trigger': 'on_message_receive',
               'source': 'record_message',
               'target': 'listening',
               'a': 'defer'}
-        off = {'name': 'off',
-            'entry': 'off; stop_timer("t")'}
+        s_1 = {'name': 'listening'}
+        s_2 = {'name': 'paused'}
+        s_3 = {'name': 'record_message',
+            'on_message_receive': 'defer'}
 
-        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [listening, paused, record_message])
+        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [s_1, s_2, s_3])
         walkie_talkie.stm = walkie_talkie_stm
         return walkie_talkie_stm
 
     def subscribe(self):
         ''' This should be put in the top of the main file '''
         MQTT_BROKER = 'mqtt.item.ntnu.no'
-        MQTT_PORT = 1883
-        MQTT_TOPIC_INPUT = 'team8/WalkieTalkie/' + self.name
+        MQTT_TOPIC_INPUT = 'team8/WalkieTalkie/'
         MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
-        #TODO: actually subscribe
+        MQTT_PORT = 1883
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+        self.mqtt_client.subsribe(MQTT_TOPIC_INPUT)
+        self.mqtt_client.loop_start()
+
 
     def start_recording(self):
-        self.stm.start_timer('t', self.max_recording_time * 1000)
+        self.stm.start_timer('t', self.max_recording_time * 1000) #Input in milliseconds
         
         ''' Init recording '''
         self.p_out = pyaudio.PyAudio()
@@ -171,4 +184,9 @@ class WalkieTalkie:
 
         
     
+driver = stmpy.Driver()
+walkie_talkie_stm = WalkieTalkie.create_machine()
+driver.add_machine(walkie_talkie_stm)
+driver.start()
+
 
