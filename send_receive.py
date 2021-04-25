@@ -1,10 +1,11 @@
-import time
-import paho.mqtt.client as paho
 import hashlib
 from datetime import datetime
 
 
 #Setting global variables
+broker = "mqtt.item.ntnu.no"
+topic = "team8/WalkieTalkie"
+qos = 0
 data_block_size = 5000000
 WAVE_INPUT_FILENAME = ''
 out_hash_md5 = hashlib.md5()
