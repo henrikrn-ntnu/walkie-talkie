@@ -1,18 +1,41 @@
 import time
 import paho.mqtt.client as paho
 import hashlib
+from datetime import datetime
 
 
-broker = "mqtt.item.ntnu.no"
-# filename="DSCI0027.jpg"
-filename = "blah-blah-blah.wav"  # file to send
-#filename = "test.wav"
-topic = "team8/send"
-qos = 1
+#Setting global variables
 data_block_size = 5000000
-fo = open(filename, "rb")
-fout = open("recieved.wav", "wb")  # use a different filename
+WAVE_INPUT_FILENAME = ''
+out_hash_md5 = hashlib.md5()
+in_hash_md5 = hashlib.md5()
 
+def receive_audiofile(payload):
+    WAVE_INPUT_FILENAME = datetime.now().strftime("%H_%M_%S") + ".wav"
+    file = open(WAVE_INPUT_FILENAME, 'wr')
+    write_to_file(payload, file)
+    file.close()
+    return WAVE_INPUT_FILENAME
+    
+def send_audiofile(WAVE_OUTPUT_FILENAME):
+    run_flag = True
+    file = open(WAVE_OUTPUT_FILENAME, 'rb')
+    buffer_list = []
+    buffer_list.append(send_header(file))
+    while run_flag:
+        buffer = file.read(data_block_size)  # change if want smaller or larger data blcoks
+        if buffer:
+            out_hash_md5.update(buffer)
+            out_message = buffer
+            buffer_list.append(out_message)
+        else:
+            #send hash
+            out_message = out_hash_md5.hexdigest()
+            buffer_list.append(send_end(file))
+            buffer_list.append(out_message)
+            run_flag = False
+    file.close()
+    return buffer_list
 
 # for outfile as I'm rnning sender and receiver together
 def process_message(msg):
@@ -36,9 +59,9 @@ def process_message(msg):
 
 
 # define callback
-def on_message(client, userdata, message):
-    if process_message(message.payload):
-        fout.write(message.payload)
+def write_to_file(payload, file):
+    if process_message(payload):
+        file.write(payload)
 
 
 def on_publish(client, userdata, mid):
@@ -62,8 +85,7 @@ def send_header(filename):
     header = "header" + ",," + filename + ",,"
     header = bytearray(header, "utf-8")
     header.extend(b',' * (200 - len(header)))
-    print(header)
-    c_publish(client, topic, header, qos)
+    return header
 
 
 def send_end(filename):
@@ -71,9 +93,7 @@ def send_end(filename):
     end = "end" + ",," + filename + ",,"
     end = bytearray(end, "utf-8")
     end.extend(b',' * (200 - len(end)))
-    print(end)
-    c_publish(client, topic, end, qos)
-
+    return end
 
 def c_publish(client, topic, out_message, qos):
     client.publish(topic, out_message, qos)  # publish
@@ -84,43 +104,3 @@ def c_publish(client, topic, out_message, qos):
         raise SystemExit("not got puback so quitting")
 
 
-client = paho.Client(
-    "client-001")  # create client object client1.on_publish = on_publish                          #assign function to callback client1.connect(broker,port)                                 #establish connection client1.publish("data/files","on")
-######
-client.on_message = on_message
-client.on_publish = on_publish
-client.puback_flag = False  # use flag in publish ack
-#####
-print("connecting to broker ", broker)
-client.connect(broker)  # connect
-client.loop_start()  # start loop to process received messages
-print("subscribing ")
-client.subscribe(topic)  # subscribe
-start = time.time()
-print("publishing ")
-send_header(filename)
-Run_flag = True
-count = 0
-##hashes
-out_hash_md5 = hashlib.md5()
-in_hash_md5 = hashlib.md5()
-
-while Run_flag:
-    chunk = fo.read(data_block_size)  # change if want smaller or larger data blcoks
-    if chunk:
-        out_hash_md5.update(chunk)
-        out_message = chunk
-        c_publish(client, topic, out_message, qos)
-
-    else:
-        #send hash
-        out_message = out_hash_md5.hexdigest()
-        send_end(filename)
-        client.publish("team", out_message, qos=1)  # publish
-        Run_flag = False
-time_taken = time.time() - start
-print("took ", time_taken)
-client.disconnect()  # disconnect
-client.loop_stop()  # stop loop
-fout.close()  # close files
-fo.close()

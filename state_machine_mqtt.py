@@ -5,7 +5,8 @@ import wave
 import pyaudio
 import paho.mqtt.client as mqtt
 import paho.mqtt.client as publish
-
+import hashlib
+import send_receive as sr
 
 
 class WalkieTalkie:
@@ -18,6 +19,8 @@ class WalkieTalkie:
         self._logger = logging.getLogger(__name__)
         self.name = name
 
+        self.userdata = ''
+
         ''' Constants '''
         self.max_recording_time = 60 #seconds
         self.audioconstants = {
@@ -28,6 +31,7 @@ class WalkieTalkie:
         }
 
         ''' Variables used in multiple functions, defined on init to be reachable '''
+        self.filename = ''
         self.p_out = ''
         self.stream_out = ''
         self.frames = []
@@ -38,15 +42,18 @@ class WalkieTalkie:
         self.MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
         self.MQTT_PORT = 1883
         '''
-        self.mqtt_client = mqtt.Client()
-        self.mqtt_client.connect(self.MQTT_BROKER, self.MQTT_PORT)
+        
         self.mqtt_client.subsribe(self.MQTT_TOPIC_INPUT)
-        self.mqtt_client.loop_start()
+        
         self.mqtt_client.on_message = self.on_message
         self.driver = stmpy.Driver()
         self.driver.start(keep_active=True)
         '''
 
+        #connect to broker
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_client.connect(self.MQTT_BROKER, self.MQTT_PORT)
+        self.mqtt_client.loop_start()
 
     def create_machine(name):
         ''' Create state machine with helper method '''
@@ -90,11 +97,11 @@ class WalkieTalkie:
         s_1 = {'name': 'listening'}
         s_2 = {'name': 'paused'}
         s_3 = {'name': 'record_message',
-            'on_message_receive': 'defer'}
+               'on_message_receive': 'defer'}
 
-        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [s_1, s_2, s_3], obj=walkie_talkie)
+        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7, t8], states = [s_1, s_2, s_3], obj=walkie_talkie)
         walkie_talkie.stm = walkie_talkie_stm
-        return walkie_talkie_stm
+        return walkie_talkie, walkie_talkie_stm
 
 
     def start_recording(self):
@@ -157,13 +164,14 @@ class WalkieTalkie:
         data_block_size = 5000000
         fo = open(filename, "rb")
 
+
+
+        self.mqtt_client.publish(self.MQTT_TOPIC_OUTPUT, 'something')
         self.WAVE_OUTPUT_FILENAME = '' # remove filename (probably not necessary) 
 
     def add_to_list(self):
-        #add recording recieved from broker to list of audiofiles
-        #TODO: add logic for fetching .wav file
-        file = '' #something.wav
-        self.audiofiles.append(file)
+        self.audiofiles.append(self.filename)
+        self.filename = ''
 
     def play_messages(self):
         while len(self.audiofiles) > 0:
@@ -211,17 +219,40 @@ class WalkieTalkie:
 
 class WalkieTalkieManager():
 
+    def process_message(self, msg):
+        """ This is the main receiver code
+        """
+        if len(msg) == 200:  # is header or end
+            msg_in = msg.decode("utf-8")
+            msg_in = msg_in.split(",,")
+            if msg_in[0] == "end":  # is it really last packet?
+                #in_hash_final = in_hash_md5.hexdigest()
+                return False
+            else:
+                if msg_in[0] != "header":
+                    self.in_hash_md5.update(msg)
+                    return True
+                else:
+                    return False
+        else:
+            self.in_hash_md5.update(msg)
+            return True
+    
     def on_connect(self, client, userdata, flags, rc):
         self._logger.debug('MQTT connected to {}'.format(client))
     
     def on_message(self, client, userdata, msg):
-        #self.walkie_talkie_stm.userdata = userdata
+        #recieve_audiofile()
+        self.walkie_talkie.userdata = userdata
         self.walkie_talkie_stm.send('on_message_receive')
 
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         print('logging under name {}.'.format(__name__))
         self._logger.info('Starting Component')
+
+        out_hash_md5 = hashlib.md5()
+        in_hash_md5 = hashlib.md5()
 
         # create client
         self.MQTT_BROKER = 'mqtt.item.ntnu.no'
@@ -247,7 +278,7 @@ class WalkieTalkieManager():
         self._logger.debug('Component initialization finished')
 
         #create walkie talkie
-        self.walkie_talkie_stm = WalkieTalkie.create_machine('wt1')
+        self.walkie_talkie, self.walkie_talkie_stm = WalkieTalkie.create_machine('wt1')
         self.driver.add_machine(self.walkie_talkie_stm)
 
 
@@ -262,3 +293,5 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 w = WalkieTalkieManager()
+
+
