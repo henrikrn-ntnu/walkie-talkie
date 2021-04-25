@@ -35,7 +35,7 @@ class WalkieTalkie:
         t1 = {'trigger':'button_press', 
               'source': 'listening', 
               'target':'record_message',
-              'effect': 'start_recording'}
+              'effect': 'start_recording; start_timer("t", 60000)'}
         t2 = {'trigger': 'button_release', 
               'source': 'record_message', 
               'target': 'listening',
@@ -59,9 +59,15 @@ class WalkieTalkie:
         t7 = {'trigger': 't',
               'source': 'record_message',
               'target': 'listening',
-              'effect': 'ignore_recording'}
+              'effect': 'ignore_recording'}¨
+        t8 = {'trigger': 'on_message_receive',
+              'source': 'record_message',
+              'target': 'listening',
+              'a': 'defer'}
+        off = {'name': 'off',
+            'entry': 'off; stop_timer("t")'}
 
-        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7])
+        walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7], states = [listening, paused, record_message])
         walkie_talkie.stm = walkie_talkie_stm
         return walkie_talkie_stm
 
