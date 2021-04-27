@@ -5,10 +5,12 @@ import sys
 from datetime import datetime
 
 class Record:
-    isrecording = False
+    def __init__(self):
+        self.isrecording = False
+        self.audiofiles = []
+        self.timer = 0
 
-    audiofiles = []
-    def stop_recording(stream, p, CHANNELS, RATE, FORMAT, frames):
+    def stop_recording(self, stream, p, CHANNELS, RATE, FORMAT, frames):
             stream.stop_stream()
             stream.close()
             p.terminate()
@@ -19,14 +21,15 @@ class Record:
             wf.setframerate(RATE)
             wf.writeframes(b''.join(frames))
             wf.close()
-            audiofiles.append(WAVE_OUTPUT_FILENAME)
+            self.audiofiles.append(WAVE_OUTPUT_FILENAME)
 
 
-    def start_recording():
+    def start_recording(self):
         CHUNK = 1024
         FORMAT = pyaudio.paInt16
         CHANNELS = 2
         RATE = 44100
+        seconds = 3
 
         p = pyaudio.PyAudio()
 
@@ -44,23 +47,26 @@ class Record:
         frames = []
         self.isrecording = True
 
-        while True:
+        for i in range(0, int(RATE / CHUNK * seconds)):
+            self.timer+= 1
             data = stream.read(CHUNK)
             frames.append(data)
-            if (isrecording == False):
+            if not self.isrecording:
                 print("* done recording")
-                stop_recording(stream, p, CHANNELS, RATE, FORMAT, frames) #Quit recording
+                self.stop_recording(stream, p, CHANNELS, RATE, FORMAT, frames) #Quit recording
                 return
+        self.stop_recording(stream, p, CHANNELS, RATE, FORMAT, frames)
 
-    def stop():
-        isrecording = False
 
-    def play_recording():
+    def stop(self):
+        self.isrecording = False
+
+    def play_recording(self):
         chunk = 1024
         """ Init audio stream """
         try:
-            file = audiofiles[0]
-            audiofiles.pop(0)
+            file = self.audiofiles[0]
+            self.audiofiles.pop(0)
         except:
             print("No recordings")
             return

@@ -27,7 +27,7 @@ class WalkieTalkieSTM:
 
     def create_machine(name):
         ''' Create state machine with helper method '''
-        walkie_talkie = WalkieTalkie(name)
+        walkie_talkie = WalkieTalkieSTM(name)
         #TODO: Add deferred events? Have to make states and triggers instead
         t0 = {'source': 'initial', 
               'target': 'listening',

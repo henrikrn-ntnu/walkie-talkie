@@ -5,12 +5,12 @@ import hashlib
 
 broker = "mqtt.item.ntnu.no"
 # filename="DSCI0027.jpg"
-filename = "record.wav"  # file to send
-topic = "team"
+filename = "WA_ex_10MB.wav"  # file to send
+topic = "team/maren"
 qos = 1
 data_block_size = 5000000
 fo = open(filename, "rb")
-fout = open("recieved.wav", "wb")  # use a different filename
+fout = open("recieved2.wav", "wb")  # use a different filename
 
 
 # for outfile as I'm rnning sender and receiver together
