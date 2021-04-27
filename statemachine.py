@@ -81,7 +81,7 @@ class WalkieTalkie:
               'source': 'record_message',
               'target': 'listening',
               'a': 'defer'}
-        s_1 = {'name': 'listening', 'button_release' : 'defer'}
+        s_1 = {'name': 'listening', 'button_release': ''}
         s_2 = {'name': 'paused'}
         s_3 = {'name': 'record_message','do': 'start_recording()',
             'on_message_receive': 'defer'}
