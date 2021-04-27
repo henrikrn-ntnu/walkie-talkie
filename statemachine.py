@@ -4,9 +4,6 @@ from datetime import datetime
 import wave
 import pyaudio
 import paho.mqtt.client as mqtt
-import hashlib
-from threading import Thread
-from appJar import gui
 import time
 
 import sendreceive as sr
@@ -95,9 +92,7 @@ class WalkieTalkie:
 
 
     def start_recording(self):
-        #self.stm.start_timer('t', self.max_recording_time * 1000) #Input in milliseconds
-        
-        ''' Init recording '''
+        ''' Initialize recording not taken from Stackoverflow at all *sweating intensifies* '''
         self.p_out = pyaudio.PyAudio()
         SPEAKERS = self.p_out.get_default_output_device_info()["hostApi"] 
         self.stream_out = self.p_out.open(format=self.audioconstants['FORMAT'],
@@ -110,14 +105,15 @@ class WalkieTalkie:
         ''' Start recording ''' 
         self._logger.debug('Recording started')
         self.frames = []
+        ''' This loop is broken by either timing out or button_release signal from GUI'''
         self.recording = True
         while self.recording:
             data = self.stream_out.read(self.audioconstants['CHUNK'])
             self.frames.append(data)
 
     def stop_recording(self):
-        self.recording = False
         ''' Stop recording '''
+        self.recording = False
         self.stream_out.stop_stream()
         self.stream_out.close()
         self.p_out.terminate()
@@ -136,25 +132,18 @@ class WalkieTalkie:
     def send_message(self):
         filename = self.WAVE_OUTPUT_FILENAME
         self._logger.debug('Start sending message')
-        buffer_list = sr.send_audiofile(filename)
-        self._logger.debug('Received buffer_list, start sending packets {}'.format(buffer_list))
+        packet_list = sr.create_packets(filename)
+        self._logger.debug('Received buffer_list, start sending packets')
         
-        for packet in buffer_list: #TODO: why this only run once i am lost
+        ''' Needs to wait a bit before sending next packet. Could e.g., implement an ack-flag if a higher order of QoS were to be used. '''
+        for packet in packet_list:
             self._logger.debug('Sending packet')
-            #sr.c_publish(self.mqtt_client, self.MQTT_TOPIC_OUTPUT, packet, qos=1)
-            #self.mqtt_client.publish(self.MQTT_TOPIC_OUTPUT, packet)
-            self.mqtt_client.publish(self.MQTT_TOPIC_OUTPUT, packet, qos=2)  # publish
+            self.mqtt_client.publish(self.MQTT_TOPIC_OUTPUT, packet, qos=0)
             time.sleep(1)
-            #if res == 0:  # published ok
-            '''
-            if sr.wait_for(self.MQTT_TOPIC_OUTPUT, "PUBACK", running_loop=True):
-                self.mqtt_client.puback_flag = False  # reset flag
-            else:
-                raise SystemExit("not got puback so quitting")
-            '''
 
         self._logger.debug('Packets sent')
-        self.WAVE_OUTPUT_FILENAME = '' # remove filename just to be safe 
+        ''' Deleting filename to be sure it does not overwrite an already existing file '''
+        self.WAVE_OUTPUT_FILENAME = ''
 
     def add_to_list(self):
         self.audiofiles.append(self.filename)
@@ -195,6 +184,7 @@ class WalkieTalkie:
 
     def ignore_recording(self):
         ''' Stop recording '''
+        self.recording = False
         self.stream_out.stop_stream()
         self.stream_out.close()
         self.p_out.terminate()

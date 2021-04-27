@@ -1,15 +1,9 @@
 import logging
 import stmpy
 from datetime import datetime
-import wave
-import pyaudio
 import paho.mqtt.client as mqtt
-import hashlib
-from threading import Thread
-from appJar import gui
 
 #other files:
-import sendreceive as sr
 from statemachine import WalkieTalkie
 from wtgui import WTGUI
 
@@ -21,10 +15,10 @@ class WalkieTalkieManager():
         if len(msg.payload) == 200:
             msg_in = msg.payload.decode("utf-8")
             msg_in = msg_in.split(",,")
-            if msg_in[0] == "header":
+            if msg_in[0] == "start":
                 self.filename = datetime.now().strftime("%H_%M_%S") + ".wav"
                 self.currentfile = open(self.filename, 'wb')
-            elif msg_in[0] == "end":
+            elif msg_in[0] == "stop":
                 self.currentfile.close()
                 self.walkie_talkie.filename = self.filename
                 self.walkie_talkie_stm.send('on_message_receive')

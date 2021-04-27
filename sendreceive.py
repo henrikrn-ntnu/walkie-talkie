@@ -1,134 +1,61 @@
 import logging
-import stmpy
-from datetime import datetime
-import wave
-import pyaudio
-import paho.mqtt.client as mqtt
-import paho.mqtt.client as publish
 import hashlib
-from threading import Thread
-from appJar import gui
-import hashlib
-from datetime import datetime
 
-
-
-#Setting global variables
-broker = "mqtt.item.ntnu.no"
-topic = "team8/WalkieTalkie"
-qos = 2
+'''
+Setting global variables
+'''
 data_block_size = 500000
 WAVE_INPUT_FILENAME = ''
+file=''
 out_hash_md5 = hashlib.md5()
 in_hash_md5 = hashlib.md5()
 
 
-file=''
-
-#logging
+'''
+DEBUG
+'''
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-def receive_audiofile(payload):
-    WAVE_INPUT_FILENAME = datetime.now().strftime("%H_%M_%S") + ".wav"
-    WAVE_INPUT_FILENAME = 'testing.wav'
-    file = open(WAVE_INPUT_FILENAME, 'wb')
-    write_to_file(payload, file)
-    logger.debug('Received audiofile written to file {}'.format(WAVE_INPUT_FILENAME))
-    file.close()
-    return WAVE_INPUT_FILENAME
-    
-def send_audiofile(WAVE_OUTPUT_FILENAME):
-    run_flag = True
-    file = open(WAVE_OUTPUT_FILENAME, 'rb')
-
-    logger.debug('Start transforming audiofile to packets')
-
-    buffer_list = []
-    header = send_header(WAVE_OUTPUT_FILENAME)
-    buffer_list.append(header)
-    logger.debug('Appended header to buffer list')
-    while run_flag:
-        buffer = file.read(data_block_size)  # change if want smaller or larger data blcoks
-        if buffer:
-            out_hash_md5.update(buffer)
-            out_message = buffer
-            buffer_list.append(out_message)
-            logger.debug('Appended out_message to buffer list')
-        else:
-            #send hash
-            out_message = out_hash_md5.hexdigest()
-            end = send_end(WAVE_OUTPUT_FILENAME)
-            buffer_list.append(end)
-            logger.debug('Appended end to buffer list')
-            run_flag = False
-    file.close()
-    logger.debug('Audiofile transformed to packets ready to send')
-    return buffer_list
-
-# for outfile as I'm rnning sender and receiver together
-def process_message(msg):
-    """ This is the main receiver code
-    """
-    if len(msg) == 200:  # is header or end
-        msg_in = msg.decode("utf-8")
-        msg_in = msg_in.split(",,")
-        if msg_in[0] == "end":  # is it really last packet?
-            #in_hash_final = in_hash_md5.hexdigest()
-
-            return False
-        else:
-            if msg_in[0] != "header":
-                in_hash_md5.update(msg)
-                return True
-            else:
-                return False
-    else:
-        in_hash_md5.update(msg)
-        return True
-
-
-# define callback
-def write_to_file(payload, file):
-    if process_message(payload):
-        file.write(payload)
-
-
-def on_publish(client, userdata, mid):
-    client.puback_flag = True
-
-
-def wait_for(client, msgType, running_loop=False):
-    client.running_loop = running_loop  # if using external loop
-    while True:
-        if msgType == "PUBACK":
-            if client.on_publish:
-                if client.puback_flag:
-                    return True
-
-        if not client.running_loop:
-            client.loop(.00)  # check for messages manually
-    return True
-
-
-def send_header(filename):
-    header = "header" + ",," + filename + ",,"
+'''
+Defining packet headers for the receive logic to make it possible to build the correct file at the receiver
+'''
+def packet_start(filename):
+    header = "start" + ",," + filename + ",,"
     header = bytearray(header, "utf-8")
     header.extend(b',' * (200 - len(header)))
     return header
 
+def packet_stop(filename):
+    header = "stop" + ",," + filename + ",,"
+    header = bytearray(header, "utf-8")
+    header.extend(b',' * (200 - len(header)))
+    return header
 
-def send_end(filename):
-    #end = "end" + ",," + filename + ",," + out_hash_md5.hexdigest()
-    end = "end" + ",," + filename + ",,"
-    end = bytearray(end, "utf-8")
-    end.extend(b',' * (200 - len(end)))
-    return end
-
-def c_publish(client, topic, out_message, qos):
-    client.publish(topic, out_message, qos)  # publish
-    #if res == 0:  # published ok
-    if wait_for(client, "PUBACK", running_loop=True):
-        client.puback_flag = False  # reset flag
-    else:
-        raise SystemExit("not got puback so quitting")
+'''
+Splitting the .wav-file into smaller data packets to be published to the broker. Run flag is used to send start and end in the packet header.
+'''
+def create_packets(WAVE_OUTPUT_FILENAME):
+    logger.debug('Start transforming audiofile to packets')
+    run_flag = True
+    file = open(WAVE_OUTPUT_FILENAME, 'rb')
+    packet_list = []
+    header = packet_start(WAVE_OUTPUT_FILENAME)
+    packet_list.append(header)
+    logger.debug('Appended header to packet list')
+    while run_flag:
+        buffer = file.read(data_block_size)
+        if buffer:
+            out_hash_md5.update(buffer)
+            out_message = buffer
+            packet_list.append(out_message)
+            logger.debug('Appended out_message to packet list')
+        else:
+            out_message = out_hash_md5.hexdigest()
+            end = packet_stop(WAVE_OUTPUT_FILENAME)
+            packet_list.append(end)
+            logger.debug('Appended end to packet list')
+            run_flag = False
+    file.close()
+    logger.debug('Audiofile transformed to packets ready to send')
+    return packet_list
