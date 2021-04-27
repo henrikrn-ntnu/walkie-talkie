@@ -36,6 +36,7 @@ class WalkieTalkieManager():
         self.MQTT_TOPIC_INPUT = 'team8/WalkieTalkie'
         self.MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
         self.MQTT_PORT = 1883
+        self.mqtt_client = mqtt.Client()
         self.mqtt_client.connect(self.MQTT_BROKER, self.MQTT_PORT)
         self.mqtt_client.subscribe(self.MQTT_TOPIC_INPUT)
         self._logger.debug('Connecting to MQTT broker {} at port {}'.format(self.MQTT_BROKER, self.MQTT_PORT))
@@ -43,13 +44,12 @@ class WalkieTalkieManager():
         ''' Defining callback methods '''
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_message = self.on_message
-
+        
         ''' Initializing variables '''
         self.filename = ''
         self.currentfile = ''
 
         ''' Start the internal loop to process MQTT messages '''
-        self.mqtt_client = mqtt.Client()
         self.mqtt_client.loop_start()
 
         ''' Start the stmpy driver '''
