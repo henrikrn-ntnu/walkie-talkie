@@ -5,21 +5,16 @@ import wave
 import pyaudio
 import paho.mqtt.client as mqtt
 import time
-
-import sendreceive as sr
+import send
 
 class WalkieTalkie:
 
     def __init__(self, name):
-
-        # logging
+        ''' DEBUG '''
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.DEBUG)
 
-        self.name = name
-        self.recording = False
         ''' Constants '''
-        self.max_recording_time = 60 #seconds
         self.audioconstants = {
             'CHUNK': 1024,
             'FORMAT' : pyaudio.paInt16,
@@ -27,19 +22,21 @@ class WalkieTalkie:
             'RATE' : 44100
         }
 
-        ''' Variables used in multiple functions, defined on init to be reachable '''
+        ''' Initializing variables '''
+        self.name = name
+        self.recording = False
         self.filename = ''
         self.p_out = ''
         self.stream_out = ''
         self.frames = []
         self.audiofiles = []
         self.WAVE_OUTPUT_FILENAME = ''
+
+        ''' Initilize connection to Broker '''
         self.MQTT_BROKER = 'mqtt.item.ntnu.no'
-        self.MQTT_TOPIC_INPUT = 'team8/WalkieTalkie/'
+        self.MQTT_TOPIC_INPUT = 'team8/WalkieTalkie'
         self.MQTT_TOPIC_OUTPUT = 'team8/WalkieTalkie'
         self.MQTT_PORT = 1883
-
-        #connect to broker
         self.mqtt_client = mqtt.Client()
         self.mqtt_client.connect(self.MQTT_BROKER, self.MQTT_PORT)
         self.mqtt_client.loop_start()
@@ -57,7 +54,7 @@ class WalkieTalkie:
         t2 = {'trigger': 'button_release', 
               'source': 'record_message', 
               'target': 'listening',
-              'effect': 'stop_timer("t"); stop_recording; send_message'}
+              'effect': 'stop_timer("t"); stop_recording; save_recording; send_message'}
         t3 = {'trigger': 'on_message_receive', 
               'source': 'listening', 
               'target': 'listening',
@@ -76,12 +73,11 @@ class WalkieTalkie:
         t7 = {'trigger': 't',
               'source': 'record_message',
               'target': 'listening',
-              'effect': 'ignore_recording'}
+              'effect': 'stop_recording'}
         t8 = {'trigger': 'on_message_receive',
               'source': 'record_message',
-              'target': 'listening',
-              'a': 'defer'}
-        s_1 = {'name': 'listening', 'button_release' : 'defer'}
+              'target': 'listening'}
+        s_1 = {'name': 'listening', 'button_release' : ''}
         s_2 = {'name': 'paused'}
         s_3 = {'name': 'record_message','do': 'start_recording()',
             'on_message_receive': 'defer'}
@@ -119,6 +115,7 @@ class WalkieTalkie:
         self.p_out.terminate()
         self._logger.debug('Recording stopped')
 
+    def save_recording(self):
         ''' Save recording '''
         self.WAVE_OUTPUT_FILENAME = datetime.now().strftime("%H_%M_%S") + ".wav"
         wf = wave.open(self.WAVE_OUTPUT_FILENAME, 'wb')
@@ -132,7 +129,7 @@ class WalkieTalkie:
     def send_message(self):
         filename = self.WAVE_OUTPUT_FILENAME
         self._logger.debug('Start sending message')
-        packet_list = sr.create_packets(filename)
+        packet_list = send.create_packets(filename)
         self._logger.debug('Received buffer_list, start sending packets')
         
         ''' Needs to wait a bit before sending next packet. Could e.g., implement an ack-flag if a higher order of QoS were to be used. '''
@@ -156,7 +153,7 @@ class WalkieTalkie:
             chunk = self.audioconstants['CHUNK']
 
             """ Init audio stream """ 
-            try: #This try may be useless because of the while loop
+            try:
                 file = self.audiofiles[0]
                 self.audiofiles.pop(0)
                 wf = wave.open(file, 'rb')
@@ -168,7 +165,7 @@ class WalkieTalkie:
                     output = True)
                 self._logger.debug('Recording ready to play')
             except Exception as e:
-                self._logger.error('Something wrong with file. {}'.format(e))
+                self._logger.error('Something wrong with file. {} Sad pepe'.format(e))
                 return
 
             """ Play entire file """
@@ -181,11 +178,3 @@ class WalkieTalkie:
             """ Graceful shutdown """ 
             stream_in.close()
             p_in.terminate()
-
-    def ignore_recording(self):
-        ''' Stop recording '''
-        self.recording = False
-        self.stream_out.stop_stream()
-        self.stream_out.close()
-        self.p_out.terminate()
-        self._logger.debug('Recording ignored')
