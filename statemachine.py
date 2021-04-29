@@ -49,10 +49,10 @@ class WalkieTalkie:
               'target': 'listening'}
         t1 = {'trigger':'button_press', 
               'source': 'listening', 
-              'target':'record_message',
+              'target':'recording',
               'effect': 'start_timer("t", 60000)'}
         t2 = {'trigger': 'button_release', 
-              'source': 'record_message', 
+              'source': 'recording', 
               'target': 'listening',
               'effect': 'stop_timer("t"); stop_recording; save_recording; send_message'}
         t3 = {'trigger': 'on_message_receive', 
@@ -71,15 +71,15 @@ class WalkieTalkie:
               'target': 'listening',
               'effect': 'play_messages'}
         t7 = {'trigger': 't',
-              'source': 'record_message',
+              'source': 'recording',
               'target': 'listening',
               'effect': 'stop_recording'}
         t8 = {'trigger': 'on_message_receive',
-              'source': 'record_message',
+              'source': 'recording',
               'target': 'listening'}
         s_1 = {'name': 'listening', 'button_release' : ''}
         s_2 = {'name': 'paused'}
-        s_3 = {'name': 'record_message','do': 'start_recording()',
+        s_3 = {'name': 'recording','do': 'start_recording()',
             'on_message_receive': 'defer'}
 
         walkie_talkie_stm = stmpy.Machine(name=name, transitions=[t0, t1, t2, t3, t4, t5, t6, t7, t8], states = [s_1, s_2, s_3], obj=walkie_talkie)
