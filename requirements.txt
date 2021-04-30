@@ -1,0 +1,5 @@
+appJar==0.94.0
+paho-mqtt==1.5.1
+pipwin==0.5.1
+stmpy==0.7.5
+Wave==0.0.2
